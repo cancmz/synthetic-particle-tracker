@@ -1,12 +1,21 @@
 import random as rn
 import matplotlib.pyplot as plt
-
+import math
 class Circle:
     def __init__(self):
         self.center_x = rn.uniform(-50, 50)
         self.center_y = rn.uniform(-50, 50)
         self.radius = rn.uniform(50, 100)
 
+    def generate_points_on_circle(self,a,b,R,n_points):
+        points=[]
+        for _ in range(n_points):
+            theta=rn.uniform(0,2*math.pi)
+            x=a+R*math.cos(theta)
+            y=b+R*math.sin(theta)
+            points.append((x,y))
+        return points
+    
 colours=['blue','red','orange','black']
 circles = [Circle() for _ in range(3)]
 fig, ax = plt.subplots()
@@ -21,6 +30,9 @@ for i, c in enumerate(circles, start=1):
     ax.text(c.center_x+3,c.center_y+3,  f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
 
     legend_labels.append((f"Circle {i} - R={c.radius:.1f}", circle_colour))
+
+    for x, y in c.generate_points_on_circle(c.center_x,c.center_y,c.radius,10):
+            ax.plot(x,y,'ro',markersize=4)
 
 for label, color in legend_labels:
     ax.plot([], [], color=color, label=label)
