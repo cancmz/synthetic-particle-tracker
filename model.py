@@ -38,7 +38,7 @@ def choose_and_fit():
     else:
         return (p1, p2, p3), result
 
-def count_inliers(points,cx,cy,r, threshold=5.0):
+def count_inliers(points,cx,cy,r, threshold=5):
     inliers = []
     for (x,y) in points:
         d=math.hypot(x-cx,y-cy)
@@ -46,6 +46,23 @@ def count_inliers(points,cx,cy,r, threshold=5.0):
         if error < threshold:
             inliers.append((x,y))
     return inliers
+
+def refine_circle_least_squares(points):
+    X = []
+    Y = []
+    for (x,y) in points:
+        X.append([x, y, 1])
+        Y.append(-(x**2 + y**2))
+    M = np.array(X)
+    b = np.array(Y)
+
+    params, _, _, _ = np.linalg.lstsq(M, b, rcond=None)
+    A, B, C = params
+
+    cx = -A / 2
+    cy = -B / 2
+    r = math.sqrt(cx**2 + cy**2 - C)
+    return cx, cy, r
 
 df=pd.read_csv("points.csv")
 points=df[["x","y"]].to_numpy()
@@ -67,6 +84,8 @@ for _ in range(n_iter):
 
 print("Best circle:", best_model)
 print("Number of inlier:", len(best_inliers), "/", len(points))
+refined_cx, refined_cy, refined_r = refine_circle_least_squares(best_inliers)
+print("Refined circle:", refined_cx, refined_cy, refined_r)
 
 fig, ax = plt.subplots()
 for (x,y) in points:
@@ -74,7 +93,10 @@ for (x,y) in points:
         ax.plot(x, y, "bo", markersize=4)  # inlier
     else:
         ax.plot(x, y, "ro", markersize=4)  # outlier
-
+refined_patch = Circle((refined_cx, refined_cy), refined_r,
+                       fill=False, color="green", linewidth=2, linestyle="--", label="Refined circle")
+ax.add_patch(refined_patch)
+ax.plot(refined_cx, refined_cy, "black", markersize=8, label="Refined center")
 """ax.plot(p1[0], p1[1],"ro", markersize=4)
 ax.plot(p2[0], p2[1],"ro", markersize=4)
 ax.plot(p3[0], p3[1],"ro", markersize=4)
