@@ -38,7 +38,7 @@ def choose_and_fit():
     else:
         return (p1, p2, p3), result
 
-def count_inliers(points,cx,cy,r, threshold=5):
+def count_inliers(points,cx,cy,r, threshold=7):
     inliers = []
     for (x,y) in points:
         d=math.hypot(x-cx,y-cy)
@@ -47,21 +47,29 @@ def count_inliers(points,cx,cy,r, threshold=5):
             inliers.append((x,y))
     return inliers
 
-def refine_circle_least_squares(points):
-    X = []
-    Y = []
-    for (x,y) in points:
-        X.append([x, y, 1])
-        Y.append(-(x**2 + y**2))
-    M = np.array(X)
-    b = np.array(Y)
+def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
+    for it in range(max_iter):
+        residuals = []
+        J = []
 
-    params, _, _, _ = np.linalg.lstsq(M, b, rcond=None)
-    A, B, C = params
+        for (x,y) in points:
+            d = math.hypot(x - cx, y - cy)
+            # Residual
+            f = d - r
+            residuals.append(f)
+            # Jacobian
+            if d == 0:
+                continue
+            J.append([(cx - x)/d, (cy - y)/d, -1])
 
-    cx = -A / 2
-    cy = -B / 2
-    r = math.sqrt(cx**2 + cy**2 - C)
+        residuals = np.array(residuals)
+        J = np.array(J)
+
+        #Update
+        delta = np.linalg.lstsq(J, residuals, rcond=None)[0]
+        cx -= delta[0]
+        cy -= delta[1]
+        r  -= delta[2]
     return cx, cy, r
 
 df=pd.read_csv("points.csv")
@@ -84,7 +92,7 @@ for _ in range(n_iter):
 
 print("Best circle:", best_model)
 print("Number of inlier:", len(best_inliers), "/", len(points))
-refined_cx, refined_cy, refined_r = refine_circle_least_squares(best_inliers)
+refined_cx, refined_cy, refined_r = refine_circle_gauss_newton(best_inliers, *best_model)
 print("Refined circle:", refined_cx, refined_cy, refined_r)
 
 fig, ax = plt.subplots()
