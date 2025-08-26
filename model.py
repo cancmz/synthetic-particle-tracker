@@ -4,6 +4,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
+
 def fit_circle_3pts(p1, p2, p3):
     # Cholinergic control
     A = np.array([[p1[0], p1[1], 1],
@@ -38,21 +39,25 @@ def choose_and_fit():
     else:
         return (p1, p2, p3), result
 
-def count_inliers(points,cx,cy,r, threshold=7):
-    inliers = []
-    for (x,y) in points:
-        d=math.hypot(x-cx,y-cy)
-        error=abs(d-r)
-        if error < threshold:
-            inliers.append((x,y))
-    return inliers
+
+def count_inliers(points, cx, cy, r, k=2.5, max_iter=3):
+    residuals = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in points]
+    for _ in range(max_iter):
+        median = np.median(residuals)
+        mad = np.median([abs(res - median) for res in residuals])
+        sigma_hat = 1.4826 * mad
+        threshold = k * sigma_hat
+        inliers = [(x, y) for (x, y) in points if abs(math.hypot(x - cx, y - cy) - r) < threshold]
+        residuals = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
+    return inliers, sigma_hat
+
 
 def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
     for it in range(max_iter):
         residuals = []
         J = []
 
-        for (x,y) in points:
+        for (x, y) in points:
             d = math.hypot(x - cx, y - cy)
             # Residual
             f = d - r
@@ -60,33 +65,42 @@ def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
             # Jacobian
             if d == 0:
                 continue
-            J.append([(cx - x)/d, (cy - y)/d, -1])
+            J.append([(cx - x) / d, (cy - y) / d, -1])
 
         residuals = np.array(residuals)
         J = np.array(J)
 
-        #Update
+        # Update
         delta = np.linalg.lstsq(J, residuals, rcond=None)[0]
         cx -= delta[0]
         cy -= delta[1]
-        r  -= delta[2]
+        r -= delta[2]
     return cx, cy, r
 
-df=pd.read_csv("points.csv")
-points=df[["x","y"]].to_numpy()
 
-n_iter=5500
+df = pd.read_csv("points.csv")
+points = df[["x", "y"]].to_numpy()
+
+n_iter = 5500
 best_model = None
 best_inliers = []
+best_score = -float("inf")
 number_of_inliers = 0
 for _ in range(n_iter):
     (p1, p2, p3), result = choose_and_fit()
     if result is None:
         continue
     cx, cy, r = result
-    inliers = count_inliers(points, cx, cy, r)
-    if len(inliers) > number_of_inliers:
-        number_of_inliers = len(inliers)
+    if r < 40 or r > 120:  # data üretimindeki radius aralığı
+        continue
+    inliers, sigma_hat = count_inliers(points, cx, cy, r)
+
+    errors = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
+    mean_error = np.mean(errors) if errors else float("inf")
+    score = len(inliers) - 1 * mean_error
+
+    if best_model is None or score > best_score:
+        best_score = score
         best_inliers = inliers
         best_model = cx, cy, r
 
@@ -96,8 +110,8 @@ refined_cx, refined_cy, refined_r = refine_circle_gauss_newton(best_inliers, *be
 print("Refined circle:", refined_cx, refined_cy, refined_r)
 
 fig, ax = plt.subplots()
-for (x,y) in points:
-    if (x,y) in best_inliers:
+for (x, y) in points:
+    if (x, y) in best_inliers:
         ax.plot(x, y, "bo", markersize=4)  # inlier
     else:
         ax.plot(x, y, "ro", markersize=4)  # outlier
