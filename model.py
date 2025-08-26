@@ -91,8 +91,6 @@ for _ in range(n_iter):
     if result is None:
         continue
     cx, cy, r = result
-    if r < 40 or r > 120:  # data üretimindeki radius aralığı
-        continue
     inliers, sigma_hat = count_inliers(points, cx, cy, r)
 
     errors = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
