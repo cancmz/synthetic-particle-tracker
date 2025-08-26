@@ -104,7 +104,7 @@ def generate_outliers(circle_n, hits_n):
 id_numbers = []
 x_list = []
 y_list = []
-number_of_circles = 3
+number_of_circles = 1
 number_of_hits_on_circle = 20
 colours = ["blue", "red", "orange", "black"]
 circles = [Circle() for _ in range(number_of_circles)]
