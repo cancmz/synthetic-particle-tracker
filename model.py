@@ -111,7 +111,7 @@ for (x, y) in best_inliers:
 
 print("Best circle:", best_model)
 print("Number of inlier:", len(best_inliers), "/", len(points))
-print(f"Suspicious inliers near the origin (0,0): {len(suspicious)}")
+print(f"Suspicious inliers near the origin (0,0): {len(suspicious_inliers)}")
 refined_cx, refined_cy, refined_r = refine_circle_gauss_newton(best_inliers, *best_model)
 print("Refined circle:", refined_cx, refined_cy, refined_r)
 
