@@ -102,8 +102,16 @@ for _ in range(n_iter):
         best_inliers = inliers
         best_model = cx, cy, r
 
+suspicious_inliers = []
+for (x, y) in best_inliers:
+    r = math.hypot(x, y)
+    r_max = 25
+    if r_max > r:
+        suspicious_inliers.append((x, y))
+
 print("Best circle:", best_model)
 print("Number of inlier:", len(best_inliers), "/", len(points))
+print(f"Suspicious inliers near the origin (0,0): {len(suspicious)}")
 refined_cx, refined_cy, refined_r = refine_circle_gauss_newton(best_inliers, *best_model)
 print("Refined circle:", refined_cx, refined_cy, refined_r)
 
