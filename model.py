@@ -40,7 +40,7 @@ def choose_and_fit():
         return (p1, p2, p3), result
 
 
-def count_inliers(points, cx, cy, r, k=2.5, max_iter=3):
+def count_inliers(points, cx, cy, r, k=2, max_iter=3):
     residuals = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in points]
     for _ in range(max_iter):
         median = np.median(residuals)
@@ -102,6 +102,9 @@ for _ in range(n_iter):
         best_inliers = inliers
         best_model = cx, cy, r
 
+"""Added a post-processing step to flag suspicious inliers close to the origin (0,0).
+This helps mark hits that might correspond to artificial noise clusters, similar to how
+detector hits around the beam spot are often less reliable."""
 suspicious_inliers = []
 for (x, y) in best_inliers:
     r = math.hypot(x, y)
