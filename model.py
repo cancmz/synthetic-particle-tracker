@@ -115,9 +115,7 @@ for _ in range(n_iter):
     models.append((score, result, inliers))
     models.sort(key=lambda x: x[0], reverse=True)
 accurete_models = get_top_circles(models, n=2)
-print(accurete_models[0][1])
-print(accurete_models[1][1])
-
+print(accurete_models)
 
 """Added a post-processing step to flag suspicious inliers close to the origin (0,0).
 This helps mark hits that might correspond to artificial noise clusters, similar to how
