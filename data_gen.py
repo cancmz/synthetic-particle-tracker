@@ -104,7 +104,7 @@ def generate_outliers(circle_n, hits_n):
 id_numbers = []
 x_list = []
 y_list = []
-number_of_circles = 1
+number_of_circles = 2
 number_of_hits_on_circle = 20
 colours = ["blue", "red", "orange", "black"]
 circles = [Circle() for _ in range(number_of_circles)]
@@ -120,8 +120,8 @@ for i, c in enumerate(circles, start=1):
         linewidth=1,
     )
 
-    # ax.add_patch(circle_patch)
-    # ax.plot(c.center_x,c.center_y,'bo',markersize=4)
+    ax.add_patch(circle_patch)
+    ax.plot(c.center_x,c.center_y,'bo',markersize=4)
     # ax.text(c.center_x+3,c.center_y+3,  f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
 
     legend_labels.append((f"Circle {i} - R={c.radius:.1f}", circle_colour))
