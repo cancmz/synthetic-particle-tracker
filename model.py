@@ -77,30 +77,51 @@ def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
         r -= delta[2]
     return cx, cy, r
 
-def get_top_circles(models, n=2, overlap_thresh=0.7):
-    unique_models = []
+def cluster_by_geometry_all(models,
+                            top_k=100000,
+                            center_tol=15,   # merkez toleransı
+                            radius_tol=10,   # yarıçap toleransı
+                            min_cluster_size=3,
+                            n=50):
 
-    for score, (cx, cy, r), inliers in models:
-        if len(unique_models) >= n:
-            break
+    candidates = models[:top_k]
+    clusters = []
 
-        is_duplicate = False
-        for _, _, existing_inliers in unique_models:
-            inter = len(set(inliers).intersection(set(existing_inliers)))
-            union = len(set(inliers).union(set(existing_inliers)))
-            overlap = inter / union if union > 0 else 0
+    for score, (cx, cy, r), inliers in candidates:
+        matched = False
+        for cluster in clusters:
+            for _, (ccx, ccy, cr), _ in cluster:
+                center_dist = math.hypot(cx - ccx, cy - ccy)
+                radius_diff = abs(r - cr)
 
-            if overlap > overlap_thresh:
-                is_duplicate = True
+                if center_dist < center_tol and radius_diff < radius_tol:
+                    cluster.append((score, (cx, cy, r), inliers))
+                    matched = True
+                    break
+            if matched:
+                break
 
-        if not is_duplicate:
-            unique_models.append((score, (cx, cy, r), inliers))
-    return unique_models
-    
+        if not matched:
+            clusters.append([(score, (cx, cy, r), inliers)])
+
+    clusters.sort(key=lambda c: len(c), reverse=True)
+
+    representatives = []
+    for c in clusters:
+        if len(c) < min_cluster_size:
+            continue
+        best = max(c, key=lambda x: x[0])
+        cx, cy, r = best[1]
+        representatives.append((cx, cy, r, len(best[2]), len(c)))
+
+    representatives = sorted(representatives, key=lambda x: x[4], reverse=True)[:n]
+
+    return representatives, clusters
+
 df = pd.read_csv("points.csv")
 points = df[["x", "y"]].to_numpy()
-n_iter = 11000
-models=[]
+n_iter = 100000
+models = []
 for _ in range(n_iter):
     (p1, p2, p3), result = choose_and_fit()
     if result is None:
@@ -110,12 +131,17 @@ for _ in range(n_iter):
 
     errors = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
     mean_error = np.mean(errors) if errors else float("inf")
-    score = len(inliers) - 1 * mean_error
+    score = len(inliers) / (1 + mean_error)
 
     models.append((score, result, inliers))
     models.sort(key=lambda x: x[0], reverse=True)
-accurete_models = get_top_circles(models, n=2)
-print(accurete_models)
+
+
+reps, clusters = cluster_by_geometry_all(models)
+
+for i, (cx, cy, r, inliers, csize) in enumerate(reps, 1):
+    print(f"Circle {i}: center=({cx:.2f},{cy:.2f}), r={r:.2f}, "
+          f"inliers={inliers}, cluster_size={csize}")
 
 """Added a post-processing step to flag suspicious inliers close to the origin (0,0).
 This helps mark hits that might correspond to artificial noise clusters, similar to how
