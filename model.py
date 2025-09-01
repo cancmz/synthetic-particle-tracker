@@ -77,50 +77,10 @@ def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
         r -= delta[2]
     return cx, cy, r
 
-def cluster_by_geometry_all(models,
-                            top_k=100000,
-                            center_tol=15,   # merkez toleransı
-                            radius_tol=10,   # yarıçap toleransı
-                            min_cluster_size=3,
-                            n=50):
-
-    candidates = models[:top_k]
-    clusters = []
-
-    for score, (cx, cy, r), inliers in candidates:
-        matched = False
-        for cluster in clusters:
-            for _, (ccx, ccy, cr), _ in cluster:
-                center_dist = math.hypot(cx - ccx, cy - ccy)
-                radius_diff = abs(r - cr)
-
-                if center_dist < center_tol and radius_diff < radius_tol:
-                    cluster.append((score, (cx, cy, r), inliers))
-                    matched = True
-                    break
-            if matched:
-                break
-
-        if not matched:
-            clusters.append([(score, (cx, cy, r), inliers)])
-
-    clusters.sort(key=lambda c: len(c), reverse=True)
-
-    representatives = []
-    for c in clusters:
-        if len(c) < min_cluster_size:
-            continue
-        best = max(c, key=lambda x: x[0])
-        cx, cy, r = best[1]
-        representatives.append((cx, cy, r, len(best[2]), len(c)))
-
-    representatives = sorted(representatives, key=lambda x: x[4], reverse=True)[:n]
-
-    return representatives, clusters
 
 df = pd.read_csv("points.csv")
 points = df[["x", "y"]].to_numpy()
-n_iter = 100000
+n_iter = 11000
 models = []
 for _ in range(n_iter):
     (p1, p2, p3), result = choose_and_fit()
@@ -136,12 +96,28 @@ for _ in range(n_iter):
     models.append((score, result, inliers))
     models.sort(key=lambda x: x[0], reverse=True)
 
-
-reps, clusters = cluster_by_geometry_all(models)
-
-for i, (cx, cy, r, inliers, csize) in enumerate(reps, 1):
-    print(f"Circle {i}: center=({cx:.2f},{cy:.2f}), r={r:.2f}, "
-          f"inliers={inliers}, cluster_size={csize}")
+x_coord=[]
+y_coord=[]
+r_val=[]
+for _, (cx, cy, r), _ in models:
+    if (45 < cx < 65) and (40<cy<60) and (r<140):
+        x_coord.append(cx)
+        y_coord.append(cy)
+        r_val.append(r)
+mean_x=np.mean(x_coord)
+mean_y=np.mean(y_coord)
+r_val.sort(reverse=True)
+plt.hist(r_val, bins=50, color="skyblue", edgecolor="black")
+plt.xlabel("Value Ranges")
+plt.ylabel("Frequency")
+plt.title("Data Density Histogram")
+plt.show()
+r_median = np.median(r_val)
+print("Median r:", r_median)
+hist, bins = np.histogram(r_val, bins=20)
+max_bin = np.argmax(hist)
+r_mode = (bins[max_bin] + bins[max_bin+1]) / 2
+print("Center of mass (mode-like):", r_mode)
 
 """Added a post-processing step to flag suspicious inliers close to the origin (0,0).
 This helps mark hits that might correspond to artificial noise clusters, similar to how
