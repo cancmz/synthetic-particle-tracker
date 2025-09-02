@@ -79,51 +79,63 @@ def refine_circle_gauss_newton(points, cx, cy, r, max_iter=4):
     return cx, cy, r
 
 
+def generate_clusters(models):
+    visited = set()
+    clusters = []
+    cluster_id = 1
+
+    for i, (score, (cx, cy, cr), inliers) in enumerate(models):
+        for j, (_, (x, y, r), _) in enumerate(models):
+            if i == j:
+                continue
+
+            if j in visited:
+                continue
+
+            if math.hypot(cx - x, cy - y) <= 15 and 50 < r < 100:
+                clusters.append({
+                    "id": cluster_id,
+                    "x": x,
+                    "y": y,
+                    "r": r
+                })
+                visited.add(j)
+        cluster_id += 1
+
+    with open("clusters.csv", "w", newline="") as f:
+        fieldnames = ["id", "x", "y", "r"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(clusters)
+        print("Clusters written to clusters.csv")
+
+
+def generate_models(n_iter=20000):
+    models = []
+    for _ in range(n_iter):
+        (p1, p2, p3), result = choose_and_fit()
+        if result is None:
+            continue
+        cx, cy, r = result
+        inliers, sigma_hat = count_inliers(points, cx, cy, r)
+
+        errors = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
+        mean_error = np.mean(errors) if errors else float("inf")
+        score = len(inliers) / (1 + mean_error)
+
+        models.append((score, result, inliers))
+    models.sort(key=lambda x: x[0], reverse=True)
+    return models
+
 df = pd.read_csv("points.csv")
 points = df[["x", "y"]].to_numpy()
-n_iter = 11000
-models = []
-"""
-for _ in range(n_iter):
-    (p1, p2, p3), result = choose_and_fit()
-    if result is None:
-        continue
-    cx, cy, r = result
-    inliers, sigma_hat = count_inliers(points, cx, cy, r)
 
-    errors = [abs(math.hypot(x - cx, y - cy) - r) for (x, y) in inliers]
-    mean_error = np.mean(errors) if errors else float("inf")
-    score = len(inliers) / (1 + mean_error)
+# pot_models=generate_models()
+# generate_clusters(pot_models)
 
-    models.append((score, result, inliers))
-    models.sort(key=lambda x: x[0], reverse=True)
-
-clusters = []
-cluster_id = 1
-
-for i, (score, (cx, cy, cr), inliers) in enumerate(models):
-    for j, (_, (x, y, r), _) in enumerate(models):
-        if i == j:  # Skips itself
-            continue
-        if math.hypot(cx - x, cy - y) <= 25 and r<110:
-            clusters.append({
-                "id": cluster_id,
-                "x": x,
-                "y": y,
-                "r": r
-            })
-    cluster_id += 1
-
-with open("clusters.csv", "w", newline="") as f:
-    fieldnames = ["id", "x", "y", "r"]
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerows(clusters)
-"""
 df=pd.read_csv("clusters.csv")
-
 id_counts = df["id"].value_counts()
-top_ids = [125]
+top_ids = [1,2001]
 
 results = {}
 
@@ -140,6 +152,8 @@ for cid in top_ids:
         "mean": r_mean,
     }
 print(results)
+
+
 """
 Added a post-processing step to flag suspicious inliers close to the origin (0,0).
 This helps mark hits that might correspond to artificial noise clusters, similar to how
