@@ -8,8 +8,8 @@ from statistics import mean, stdev
 
 class Circle:
     def __init__(self):
-        self.center_x = rn.uniform(-50, 50)
-        self.center_y = rn.uniform(-50, 50)
+        self.center_x = rn.uniform(-100, 100)
+        self.center_y = rn.uniform(-100, 100)
         self.radius = rn.uniform(50, 100)
 
     def generate_points_on_circle(self, a, b, R, n_points):
@@ -122,7 +122,7 @@ for i, c in enumerate(circles, start=1):
 
     ax.add_patch(circle_patch)
     ax.plot(c.center_x,c.center_y,'bo',markersize=4)
-    # ax.text(c.center_x+3,c.center_y+3,  f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
+    ax.text(c.center_x+3,c.center_y+3,  f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
 
     legend_labels.append((f"Circle {i} - R={c.radius:.1f}", circle_colour))
 
