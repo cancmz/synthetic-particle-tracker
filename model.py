@@ -3,6 +3,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+import csv
 
 
 def fit_circle_3pts(p1, p2, p3):
@@ -82,6 +83,7 @@ df = pd.read_csv("points.csv")
 points = df[["x", "y"]].to_numpy()
 n_iter = 11000
 models = []
+"""
 for _ in range(n_iter):
     (p1, p2, p3), result = choose_and_fit()
     if result is None:
@@ -96,30 +98,50 @@ for _ in range(n_iter):
     models.append((score, result, inliers))
     models.sort(key=lambda x: x[0], reverse=True)
 
-x_coord=[]
-y_coord=[]
-r_val=[]
-for _, (cx, cy, r), _ in models:
-    if (45 < cx < 65) and (40<cy<60) and (r<140):
-        x_coord.append(cx)
-        y_coord.append(cy)
-        r_val.append(r)
-mean_x=np.mean(x_coord)
-mean_y=np.mean(y_coord)
-r_val.sort(reverse=True)
-plt.hist(r_val, bins=50, color="skyblue", edgecolor="black")
-plt.xlabel("Value Ranges")
-plt.ylabel("Frequency")
-plt.title("Data Density Histogram")
-plt.show()
-r_median = np.median(r_val)
-print("Median r:", r_median)
-hist, bins = np.histogram(r_val, bins=20)
-max_bin = np.argmax(hist)
-r_mode = (bins[max_bin] + bins[max_bin+1]) / 2
-print("Center of mass (mode-like):", r_mode)
+clusters = []
+cluster_id = 1
 
-"""Added a post-processing step to flag suspicious inliers close to the origin (0,0).
+for i, (score, (cx, cy, cr), inliers) in enumerate(models):
+    for j, (_, (x, y, r), _) in enumerate(models):
+        if i == j:  # Skips itself
+            continue
+        if math.hypot(cx - x, cy - y) <= 25 and r<110:
+            clusters.append({
+                "id": cluster_id,
+                "x": x,
+                "y": y,
+                "r": r
+            })
+    cluster_id += 1
+
+with open("clusters.csv", "w", newline="") as f:
+    fieldnames = ["id", "x", "y", "r"]
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(clusters)
+"""
+df=pd.read_csv("clusters.csv")
+
+id_counts = df["id"].value_counts()
+top_ids = [125]
+
+results = {}
+
+for cid in top_ids:
+    group = df[df["id"] == cid]
+
+    r_values = group["r"].values
+    r_median = np.median(r_values)
+    r_mean = np.mean(r_values)
+
+    results[cid] = {
+        "count": len(r_values),
+        "median": r_median,
+        "mean": r_mean,
+    }
+print(results)
+"""
+Added a post-processing step to flag suspicious inliers close to the origin (0,0).
 This helps mark hits that might correspond to artificial noise clusters, similar to how
 detector hits around the beam spot are often less reliable.
 suspicious_inliers = []
