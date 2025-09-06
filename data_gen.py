@@ -12,12 +12,13 @@ class Circle:
         self.center_y = rn.uniform(-100, 100)
         self.radius = rn.uniform(50, 100)
 
-    def generate_points_on_circle(self, a, b, R, n_points):
+    def generate_points_on_circle(self, a, b, R, n_points, jitter_sigma=0.05):
         points = []
-        for _ in range(n_points):
-            theta = rn.uniform(0, 2 * math.pi)
-            x = a + R * math.cos(theta)
-            y = b + R * math.sin(theta)
+        thetas = np.linspace(0, 2 * math.pi, n_points, endpoint=False)
+        for theta in thetas:
+            theta_noisy = theta + rn.gauss(0, jitter_sigma)
+            x = a + R * math.cos(theta_noisy)
+            y = b + R * math.sin(theta_noisy)
             points.append((x, y))
         return points
 
@@ -70,10 +71,9 @@ def add_noise_to_points(points, sigma):
     return noisy_points
 
 
-def generate_outliers(circle_n, hits_n):
-    real_hits = circle_n * hits_n
+def generate_outliers(total_hits):
     change_ratio = rn.uniform(-0.3, 0.3)
-    number_of_outliers = int((int(real_hits * 1.2)) * (1 + change_ratio))
+    number_of_outliers = int((total_hits * 1.2) * (1 + change_ratio))
 
     outliers_80 = []  # 80% of outliers
     for _ in range(int(number_of_outliers * 0.8)):
@@ -81,7 +81,7 @@ def generate_outliers(circle_n, hits_n):
         y = rn.uniform(-200, 200)
         outliers_80.append((x, y))
 
-    outliers_20 = []  # 20% of outliers
+    outliers_20 = []  # 20% near-origin cluster
     for _ in range(int(number_of_outliers * 0.2)):
         r_max = rn.uniform(20, 30)
         r = rn.uniform(0, r_max)
@@ -90,22 +90,27 @@ def generate_outliers(circle_n, hits_n):
         y = r * math.sin(theta)
         outliers_20.append((x, y))
 
-    outliers_line = []  # Line outliers
+    # Line outliers
     number_of_line_outliers = int(number_of_outliers * 0.3)
     y_values = np.linspace(200, -200, number_of_line_outliers)
     x_values = np.full(number_of_line_outliers, -180)
     outliers_line = list(zip(x_values, y_values))
     outliers_line_noisy = add_noise_to_points(outliers_line, 3)
-    # Combine all outliers
-    outliers = outliers_80 + outliers_20 + outliers_line_noisy
-    return outliers
+    # Combine all outliers and return
+    return outliers_80 + outliers_20 + outliers_line_noisy
+
+
+def hits_from_radius(r, rmin=50, rmax=100, nmin=15, nmax=55):
+    n_hits = nmin + (r - rmin) / (rmax - rmin) * (nmax - nmin)
+    return int(round(n_hits))
 
 
 id_numbers = []
 x_list = []
 y_list = []
 number_of_circles = 2
-number_of_hits_on_circle = 20
+number_of_hits_on_circle = 32
+total_hits = 0
 colours = ["blue", "red", "orange", "black"]
 circles = [Circle() for _ in range(number_of_circles)]
 fig, ax = plt.subplots()
@@ -119,22 +124,19 @@ for i, c in enumerate(circles, start=1):
         edgecolor=circle_colour,
         linewidth=1,
     )
-
+    n_hits = hits_from_radius(c.radius)
+    total_hits += n_hits
     ax.add_patch(circle_patch)
-    ax.plot(c.center_x,c.center_y,'bo',markersize=4)
-    ax.text(c.center_x+3,c.center_y+3,  f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
-
+    ax.plot(c.center_x, c.center_y, 'bo', markersize=4)
+    ax.text(c.center_x + 3, c.center_y + 3, f"({c.center_x:.1f}, {c.center_y:.1f})", fontsize=8, color='black')
+    ax.text(c.center_x + 10, c.center_y + 10, f"s = {n_hits}", fontsize=8, color='black')
     legend_labels.append((f"Circle {i} - R={c.radius:.1f}", circle_colour))
 
-    noisy_points = add_noise_to_points(
-        c.generate_points_on_circle(
-            c.center_x, c.center_y, c.radius, number_of_hits_on_circle
-        ),
-        c.get_sigma_from_radius(),
-    )
+    noisy_points = add_noise_to_points(c.generate_points_on_circle(c.center_x, c.center_y, c.radius, n_hits),
+                                       c.get_sigma_from_radius())
 
     for x, y in noisy_points:
-        ax.plot(x, y, "ro", markersize=4)
+        ax.plot(x, y, "bo", markersize=4)
         id_number = get_id_for_points(id_numbers)
         x_list.append(x)
         y_list.append(y)
@@ -147,7 +149,7 @@ for i, c in enumerate(circles, start=1):
 for label, color in legend_labels:
     ax.plot([], [], color=color, label=label)
 
-outliers = generate_outliers(number_of_circles, number_of_hits_on_circle)
+outliers = generate_outliers(total_hits)
 for x, y in outliers:
     ax.plot(x, y, "ro", markersize=4)
     id_number = get_id_for_points(id_numbers)
